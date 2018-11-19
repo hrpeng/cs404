@@ -1,0 +1,50 @@
+----------------- Q2 create numbers table-----------------
+
+if db_id('StatisticsTest_a7b1b') is null 
+  create database StatisticsTest_a7b1b;
+go
+alter database StatisticsTest_a7b1b set recovery simple
+go
+use StatisticsTest_a7b1b
+go
+-- Create a Numbers table
+create table Numbers(n int not null primary key);
+go
+insert Numbers(n)
+	select rn from (select row_number()
+		over(order by current_timestamp) as rn
+	    from sys.trace_event_bindings as b1
+		,sys.trace_event_bindings as b2) as rd 
+	where rn <= 1000000
+
+
+
+----------------- Q3 create and insert to T0 table-----------------
+
+use "StatisticsTest_a7b1b"
+go
+
+-- Insert 100000 rows. All rows contain the value 1000 for column c1
+insert T0(c1)
+select 1000 from Numbers
+where n <= 100000
+go
+-- Now insert only one row with value 2000
+insert T0(c1) values(2000)
+go
+--create a nonclustered index on column c1
+create nonclustered index ix_T0_1 on T0(c1)
+
+
+----------------- Q4 queries of T0 ----------------
+SELECT c1, c2 FROM T0 where c1=1000
+SELECT c1, c2 FROM T0 where c1=2000
+SELECT c1, c2 FROM T0 where c1=1500
+
+
+
+
+
+
+
+

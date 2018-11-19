@@ -1,0 +1,22 @@
+-- drop table
+DROP TABLE numbers
+
+-- select top rows of table
+SELECT TOP(1) *
+FROM numbers
+
+-- select bottom rows of table
+SELECT TOP 10 * 
+FROM numbers 
+ORDER BY n 
+DESC
+
+-- update table row
+update numbers
+set n = 110000000
+where n = 1
+
+-- print table structure
+EXEC sp_help Numbers
+
+
