@@ -42,6 +42,58 @@ SELECT c1, c2 FROM T0 where c1=2000
 SELECT c1, c2 FROM T0 where c1=1500
 
 
+----------------- Q5 select with variable ------------------
+declare @x int
+set @x = 2000
+select c1,c2 from T0
+where c1 = @x
+
+
+----------------- Q6 create T1 ------------------
+use "StatisticsTest_a7b1b";
+go
+if (object_id('T1', 'U') is not null)
+drop table T1
+go
+create table T1
+(
+x int not null,
+a varchar(20) not null,
+b int not null
+--y char(20) null
+)
+go
+insert T1(x,a,b)
+select n % 1000,n%3000,n%5000
+from Numbers
+where n <= 100000
+go
+create nonclustered index IxT1_x on T1(x)
+
+
+----------------- Q8 sys.stat query ------------------
+select object_name(object_id) as table_name
+,name as stats_name
+,stats_date(object_id, stats_id) as last_update
+from sys.stats
+where objectproperty(object_id, 'IsUserTable') = 1
+order by last_update
+
+DBCC SHOW_STATISTICS('dbo.T1', IxT1_x)
+
+
+----------------- Q9 execution plans ------------------
+select * from T1 where x = 100;
+select * from T1 where a = '100';
+select * from T1 where a = '234' and b = 1234;
+
+create nonclustered index IxT1_ab on T1(a,b)
+
+
+
+
+
+
 
 
 
