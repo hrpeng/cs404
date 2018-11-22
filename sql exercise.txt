@@ -92,6 +92,71 @@ create nonclustered index IxT1_ab on T1(a,b)
 
 
 
+----------------- Q10 variable and execution plans ------------------
+declare @x int
+set @x = 2000
+select c1,c2
+from T0
+where c1 = @x
+
+----solution1: parameter sniffing----
+create procedure getT0Values(@x int) as   
+ select c1,c2 
+ from T0   
+ where c1 = @x 
+
+exec getT0Values 2000
+
+--For c1=2000 case, estimated number of rows is 50000.5, while actual number of rows is 1, and access path is table scan. After solution 1 both estimated and actual number of rows are 1, and access path is index seek.
+--For c1=1000 case after solution 1, estimated number of rows is 1, while actual number of rows is 100000, and access path is table scan.
+
+
+----solution2: dynamic SQL----
+declare @x int,
+@cmd nvarchar(300)
+set @x = 1000
+set @cmd = 'select c1,c2 from T0 where c1='
++ cast(@x as nvarchar(8))
+exec(@cmd)
+
+--both c1=1000 and 2000 has accurate estimations and optimal access paths
+
+
+----solution3: sp_executesql----
+exec sp_executesql N'select c1, c2 from T0 where c1=@x'
+,N'@x int'
+,@x = 1000
+
+--c1=1000 still has inaccurate estimation of 1 row; access path is index seek
+--c1=2000 has good estimation of 1 row; access path is index seek
+
+
+
+----------------- Q12 parameterization in T-SQL scripts ------------------
+
+----a. create procedure----
+create procedure new_getT0Values(@x int) as
+set @x = @x * 2
+select c1, c2 from T0
+where c1 = @x
+
+
+----b. execute procedure----
+
+exec new_getT0Values 2000;
+exec new_getT0Values 1000;
+exec new_getT0Values 500;
+
+                       2000          1000          500
+---estimated plan    index seek    table scan   index seek
+---actual plan       index seek    index seek   index seek
+---estimated rows        1             1            1
+---actual rows           0             1          100000
+
+----c. drop procedure----
+DROP PROCEDURE new_getT0Values
+
+
 
 
 
