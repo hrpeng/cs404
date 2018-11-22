@@ -19,4 +19,6 @@ where n = 1
 -- print table structure
 EXEC sp_help Numbers
 
+-- drop procedure
+DROP PROCEDURE new_getT0Values
 
