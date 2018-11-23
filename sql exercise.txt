@@ -158,6 +158,120 @@ DROP PROCEDURE new_getT0Values
 
 
 
+---------------Q13 preparation to compare different plans ------------------
+drop database StatisticsTest_y1d0b;
+
+if db_id('StatisticsTest_y1d0b') is null 
+  create database StatisticsTest_y1d0b;
+go
+alter database StatisticsTest_y1d0b set recovery simple
+alter database StatisticsTest_y1d0b set auto_update_statistics off
+alter database StatisticsTest_y1d0b set auto_update_statistics_async off
+go
+use StatisticsTest_y1d0b
+go
+
+-- Create a Numbers table
+create table Numbers(n int not null primary key);
+go
+insert Numbers(n)
+	select rn from (select row_number()
+		over(order by current_timestamp) as rn
+	    from sys.trace_event_bindings as b1
+		,sys.trace_event_bindings as b2) as rd 
+where rn <= 1000000
+
+-- Create table Product
+create table Product (	ProductID int not null, 
+			LastUpdate date not null, 
+			ListPrice int not null, 
+			filler nchar(500) not null default '#');
+go
+
+-- Create clustered PK index
+alter table Product 
+	add constraint PK_Product 
+	primary key clustered (ProductID)
+
+-- Create two unclustered indexes: one on the LastUpdate field and another on the ListPrice field
+create nonclustered index ix_Product_LastUpdate on Product(LastUpdate)
+create nonclustered index ix_Product_ListPrice on Product(ListPrice)
+go
+
+
+
+---------------Q15 comparison between index and no index------------------
+
+------ a. Inserting 1000000 rows into Products ------
+use StatisticsTest_y1d0b
+
+insert Product(ProductID, LastUpdate, ListPrice) 
+	select n,
+		dateadd(day, abs(checksum(newid())) % 3250, '20000101'), 
+		0.01*(abs(checksum(newid())) % 20000) 
+	from Numbers 
+	where n <= 1000000
+
+
+------ d. Determine the time at which various statistics were gathered ------
+use StatisticsTest_y1d0b;
+
+select    object_name(object_id) as table_name, 
+          name as stats_name, 
+          stats_date(object_id, stats_id) as last_update 
+from      sys.stats 
+where     objectproperty(object_id, 'IsUserTable') = 1 
+order by  last_update; 
+
+
+------ e. 7 queries ------
+use StatisticsTest_y1d0b;
+set statistics io on;
+
+-- Query 1 
+select      count(*) 
+from        Product 
+where       ProductID between 10000 and 10019; 
+
+-- Query 2 
+select      count(*) 
+from        Product 
+where       ProductID < 50000; 
+
+-- Query 3 
+select      count(*) 
+from        Product 
+where       ListPrice <= 0.10; 
+
+-- Query 4 
+select      * 
+from        Product 
+where       ListPrice <= 0.10; 
+
+-- Query 5 
+select      LastUpdate, count(*) as count 
+from        Product 
+group by    LastUpdate; 
+
+-- Query 6 
+select      ListPrice, count(*) as count 
+from        Product 
+where       ListPrice < 0.05 and LastUpdate < '2001-01-10' 
+group by    ListPrice; 
+
+-- Query 7 
+select      filler, count(*) as count 
+from        Product 
+group by    filler; 
+
+	
+
+
+
+
+
+
+
 
 
 
